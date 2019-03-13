@@ -45,19 +45,31 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var title, url, text string
+	var brief, title, url, text string
 	switch event := event.(type) {
 	case *github.PushEvent:
-		title = fmt.Sprintf(`\[%s\] %s pushed to %s`,
+		ref := (*event.Ref)[len(refsPre):]
+		brief = fmt.Sprintf("Push to %s", ref)
+		action := "pushed to"
+		if *event.Created {
+			action = "created"
+		} else if *event.Deleted {
+			action = "deleted"
+		} else if *event.Forced {
+			action = "force pushed to"
+		}
+		title = fmt.Sprintf(`\[%s\] %s %s branch %s`,
 			*event.Repo.Name,
 			*event.Pusher.Name,
-			(*event.Ref)[len(refsPre):],
+			action,
+			ref,
 		)
 		url = *event.Compare
 		for _, commit := range event.Commits {
 			text += fmt.Sprintf("> [%s](%s) %s - %s\n\n", (*commit.ID)[:7], *commit.URL, *commit.Message, *commit.Committer.Name)
 		}
 	case *github.PullRequestEvent:
+		brief = fmt.Sprintf("PR #%d", *event.Number)
 		title = fmt.Sprintf(`\[%s\] Pull request #%d %s by %s`,
 			*event.Repo.Name,
 			*event.Number,
@@ -67,7 +79,8 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		url = *event.PullRequest.HTMLURL
 		text = " > " + *event.PullRequest.Title + "\n\n> " + *event.PullRequest.Body
 	case *github.PullRequestReviewEvent:
-		title = fmt.Sprintf(`\[%s\] Pull request #%d review %s: %s by %s`,
+		brief = fmt.Sprintf("PR #%d review", *event.PullRequest.Number)
+		title = fmt.Sprintf(`\[%s\] Pull request #%d review %s: **%s** by %s`,
 			*event.Repo.Name,
 			*event.PullRequest.Number,
 			*event.Action,
@@ -75,12 +88,12 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 			*event.Sender.Login,
 		)
 		url = *event.Review.HTMLURL
-		body := ""
-		if event.Review.Body != nil {
-			body = *event.Review.Body
+		if event.Review.Body == nil {
+			return
 		}
-		text = "> " + body
+		text = "> " + *event.Review.Body
 	case *github.PullRequestReviewCommentEvent:
+		brief = fmt.Sprintf("PR #%d comment", *event.PullRequest.Number)
 		title = fmt.Sprintf(`\[%s\] Pull request #%d review comment %s by %s`,
 			*event.Repo.Name,
 			*event.PullRequest.Number,
@@ -90,6 +103,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		url = *event.Comment.HTMLURL
 		text = "> " + *event.Comment.Body
 	case *github.IssueCommentEvent:
+		brief = fmt.Sprintf("Issue #%d comment", *event.Issue.Number)
 		title = fmt.Sprintf(`\[%s\] Issue/pull request #%d comment %s by %s`,
 			*event.Repo.Name,
 			*event.Issue.Number,
@@ -98,12 +112,22 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		)
 		url = *event.Issue.HTMLURL
 		text = "> " + *event.Issue.Body
+	case *github.CommitCommentEvent:
+		brief = fmt.Sprintf("Commit %s comment", (*event.Comment.CommitID)[:7])
+		title = fmt.Sprintf(`\[%s\] Commit %s comment %s by %s`,
+			*event.Repo.Name,
+			(*event.Comment.CommitID)[:7],
+			*event.Action,
+			*event.Sender.Login,
+		)
+		url = *event.Comment.HTMLURL
+		text = "> " + *event.Comment.Body
 	default:
 		return
 	}
 
 	err = dingbot.NewMarkdownMessage(
-		title,
+		brief,
 		fmt.Sprintf("#### [%s](%s)\n%s", title, url, text),
 		dingbot.EmptyAtTag()).Send(accessToken)
 	if err != nil {
