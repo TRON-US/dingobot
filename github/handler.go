@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/google/go-github/github"
 	"github.com/sluongng/dingbot"
@@ -66,7 +67,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		)
 		url = *event.Compare
 		for _, commit := range event.Commits {
-			text += fmt.Sprintf("> [%s](%s) %s - %s\n\n", (*commit.ID)[:7], *commit.URL, *commit.Message, *commit.Committer.Name)
+			text += fmt.Sprintf("[%s](%s) %s - %s\n\n", (*commit.ID)[:7], *commit.URL, *commit.Message, *commit.Committer.Name)
 		}
 	case *github.PullRequestEvent:
 		brief = fmt.Sprintf("PR #%d", *event.Number)
@@ -77,7 +78,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 			*event.Sender.Login,
 		)
 		url = *event.PullRequest.HTMLURL
-		text = " > " + *event.PullRequest.Title + "\n\n> " + *event.PullRequest.Body
+		text = *event.PullRequest.Title + "\n\n" + *event.PullRequest.Body
 	case *github.PullRequestReviewEvent:
 		brief = fmt.Sprintf("PR #%d review", *event.PullRequest.Number)
 		title = fmt.Sprintf(`\[%s\] Pull request #%d review %s: **%s** by %s`,
@@ -91,7 +92,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		if event.Review.Body == nil {
 			return
 		}
-		text = "> " + *event.Review.Body
+		text = *event.Review.Body
 	case *github.PullRequestReviewCommentEvent:
 		brief = fmt.Sprintf("PR #%d comment", *event.PullRequest.Number)
 		title = fmt.Sprintf(`\[%s\] Pull request #%d review comment %s by %s`,
@@ -101,7 +102,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 			*event.Sender.Login,
 		)
 		url = *event.Comment.HTMLURL
-		text = "> " + *event.Comment.Body
+		text = *event.Comment.Body
 	case *github.IssueCommentEvent:
 		brief = fmt.Sprintf("Issue #%d comment", *event.Issue.Number)
 		title = fmt.Sprintf(`\[%s\] Issue/pull request #%d comment %s by %s`,
@@ -111,7 +112,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 			*event.Sender.Login,
 		)
 		url = *event.Issue.HTMLURL
-		text = "> " + *event.Issue.Body
+		text = *event.Issue.Body
 	case *github.CommitCommentEvent:
 		brief = fmt.Sprintf("Commit %s comment", (*event.Comment.CommitID)[:7])
 		title = fmt.Sprintf(`\[%s\] Commit %s comment %s by %s`,
@@ -121,14 +122,19 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 			*event.Sender.Login,
 		)
 		url = *event.Comment.HTMLURL
-		text = "> " + *event.Comment.Body
+		text = *event.Comment.Body
 	default:
 		return
 	}
 
+	// Replace all (double for markdown) linebreaks with indentation
+	text = fmt.Sprintf("#### [%s](%s)\n\n%s", title, url, text)
+	text = strings.ReplaceAll(text, "\n\n", "\n\n> ")
+	text = strings.ReplaceAll(text, "\r\n\r\n", "\n\n> ")
+
 	err = dingbot.NewMarkdownMessage(
 		brief,
-		fmt.Sprintf("#### [%s](%s)\n%s", title, url, text),
+		text,
 		dingbot.EmptyAtTag()).Send(accessToken)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
