@@ -70,8 +70,11 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 			text += fmt.Sprintf("[%s](%s) %s - %s\n\n", (*commit.ID)[:7], *commit.URL, *commit.Message, *commit.Committer.Name)
 		}
 	case *github.PullRequestEvent:
+		if *event.Action == "synchronize" {
+			return
+		}
 		brief = fmt.Sprintf("PR #%d", *event.Number)
-		title = fmt.Sprintf(`\[%s\] Pull request #%d %s by %s`,
+		title = fmt.Sprintf(`\[%s\] Pull request #%d **%s** by %s`,
 			*event.Repo.Name,
 			*event.Number,
 			*event.Action,
@@ -95,7 +98,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		text = *event.Review.Body
 	case *github.PullRequestReviewCommentEvent:
 		brief = fmt.Sprintf("PR #%d comment", *event.PullRequest.Number)
-		title = fmt.Sprintf(`\[%s\] Pull request #%d review comment %s by %s`,
+		title = fmt.Sprintf(`\[%s\] Pull request #%d review comment **%s** by %s`,
 			*event.Repo.Name,
 			*event.PullRequest.Number,
 			*event.Action,
@@ -105,7 +108,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		text = *event.Comment.Body
 	case *github.IssueCommentEvent:
 		brief = fmt.Sprintf("Issue #%d comment", *event.Issue.Number)
-		title = fmt.Sprintf(`\[%s\] Issue/pull request #%d comment %s by %s`,
+		title = fmt.Sprintf(`\[%s\] Issue/pull request #%d comment **%s** by %s`,
 			*event.Repo.Name,
 			*event.Issue.Number,
 			*event.Action,
@@ -115,7 +118,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		text = *event.Issue.Body
 	case *github.CommitCommentEvent:
 		brief = fmt.Sprintf("Commit %s comment", (*event.Comment.CommitID)[:7])
-		title = fmt.Sprintf(`\[%s\] Commit %s comment %s by %s`,
+		title = fmt.Sprintf(`\[%s\] Commit %s comment **%s** by %s`,
 			*event.Repo.Name,
 			(*event.Comment.CommitID)[:7],
 			*event.Action,
