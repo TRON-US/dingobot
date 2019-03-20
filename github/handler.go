@@ -114,8 +114,8 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 			*event.Action,
 			*event.Sender.Login,
 		)
-		url = *event.Issue.HTMLURL
-		text = *event.Issue.Body
+		url = *event.Comment.HTMLURL
+		text = *event.Comment.Body
 	case *github.CommitCommentEvent:
 		brief = fmt.Sprintf("Commit %s comment", (*event.Comment.CommitID)[:7])
 		title = fmt.Sprintf(`\[%s\] Commit %s comment **%s** by %s`,
