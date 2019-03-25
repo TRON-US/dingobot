@@ -74,11 +74,16 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		brief = fmt.Sprintf("PR #%d", *event.Number)
-		title = fmt.Sprintf(`\[%s\] Pull request #%d **%s** by %s`,
+		var info string
+		if *event.Action == "review_requested" {
+			info = fmt.Sprintf(": [%s]", *event.RequestedReviewer.Login)
+		}
+		title = fmt.Sprintf(`\[%s\] Pull request #%d **%s** by %s%s`,
 			*event.Repo.Name,
 			*event.Number,
 			*event.Action,
 			*event.Sender.Login,
+			info,
 		)
 		url = *event.PullRequest.HTMLURL
 		text = *event.PullRequest.Title + "\n\n" + *event.PullRequest.Body
