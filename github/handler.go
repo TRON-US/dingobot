@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	refsPre = "refs/heads/"
+	refHeadsPre = "refs/heads/"
+	refTagsPre  = "refs/tags/"
 )
 
 var (
@@ -49,7 +50,14 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 	var brief, title, url, text string
 	switch event := event.(type) {
 	case *github.PushEvent:
-		ref := (*event.Ref)[len(refsPre):]
+		var ref, refType string
+		if strings.HasPrefix(*event.Ref, refHeadsPre) {
+			refType = "branch"
+			ref = (*event.Ref)[len(refHeadsPre):]
+		} else if strings.HasPrefix(*event.Ref, refTagsPre) {
+			refType = "tag"
+			ref = (*event.Ref)[len(refTagsPre):]
+		}
 		brief = fmt.Sprintf("Push to %s", ref)
 		action := "pushed to"
 		if *event.Created {
@@ -59,10 +67,11 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		} else if *event.Forced {
 			action = "force pushed to"
 		}
-		title = fmt.Sprintf(`\[%s\] %s %s branch %s`,
+		title = fmt.Sprintf(`\[%s\] %s %s %s %s`,
 			*event.Repo.Name,
 			*event.Pusher.Name,
 			action,
+			refType,
 			ref,
 		)
 		url = *event.Compare
